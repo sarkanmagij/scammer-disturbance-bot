@@ -3,4 +3,7 @@ python-dotenv==1.0.1
 google-generativeai==0.7.0
 twilio==8.13.0
 supabase==1.0.2
-pkce==1.0.3 
+pkce==1.0.3
+stripe==8.6.0
+
+

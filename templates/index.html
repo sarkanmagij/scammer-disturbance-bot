@@ -60,8 +60,10 @@
     {% if session.user_id %}
         <div class="auth-section">
             <p>
-                Logged in as: <strong>{{ session.user_email }}</strong> (Role: {{ session.user_role }})
+                Logged in as: <strong>{{ session.user_email }}</strong> (Role: {{ session.user_role }}) |
+                Tokens: <strong id="tokenBalance">{{ token_balance }}</strong>
             </p>
+            <button id="buyTokensBtn">Buy Tokens</button>
             <a href="{{ url_for('profile') }}">View Profile</a>
             <a href="{{ url_for('logout') }}">Logout</a>
         </div>

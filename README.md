@@ -20,6 +20,7 @@ The Scammer Disturbance Bot is a Flask-based web application designed to send a 
 *   **Web Interface:** Simple Flask frontend to input phone number, language, message count, schedule parameters.
 *   **Background Scheduler:** A persistent background thread processes scheduled messages from a Supabase database.
 *   **Secure Configuration:** Relies on environment variables for API keys and sensitive credentials.
+*   **Token Payments:** Users can purchase SMS tokens via Stripe which are stored in Supabase.
 
 ## Tech Stack
 
@@ -67,6 +68,11 @@ The Scammer Disturbance Bot is a Flask-based web application designed to send a 
 
     SUPABASE_URL="YOUR_SUPABASE_PROJECT_API_URL"
     SUPABASE_SERVICE_KEY="YOUR_SUPABASE_PROJECT_SERVICE_ROLE_KEY"
+
+    # Stripe configuration for purchasing SMS tokens
+    STRIPE_SECRET_KEY="YOUR_STRIPE_SECRET_KEY"
+    STRIPE_WEBHOOK_SECRET="YOUR_STRIPE_WEBHOOK_SECRET"
+    STRIPE_PRICE_ID="PRICE_ID_FOR_TOKEN_PACKAGE"
     ```
 
     *   Replace placeholders with your actual credentials.
@@ -90,6 +96,17 @@ The Scammer Disturbance Bot is a Flask-based web application designed to send a 
 
     -- Optional: Add an index for faster querying by the scheduler
     CREATE INDEX idx_scheduled_messages_status_send_at ON public.scheduled_messages (status, send_at);
+    ```
+
+6.  **Set up Payment Tokens Table:**
+    Create a simple table to track SMS token balances:
+
+    ```sql
+    CREATE TABLE public.payment_tokens (
+        user_id UUID PRIMARY KEY,
+        token_balance INTEGER DEFAULT 0,
+        updated_at TIMESTAMPTZ DEFAULT now()
+    );
     ```
 
 ## Running the Application
