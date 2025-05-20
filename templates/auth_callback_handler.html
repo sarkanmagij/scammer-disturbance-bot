@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authenticating...</title>
+    <!-- Import Supabase JS library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // These values MUST be available to your client-side JS
+        // You should securely provide these, perhaps via environment variables passed during build
+        // or by rendering them into the template from server-side config if appropriate.
+        // For simplicity here, we'll assume they might be hardcoded or managed via a config object.
+        //
+        // IMPORTANT: In a real app, do NOT expose your service_key here.
+        // You need the ANON KEY for client-side Supabase JS.
+        // Get this from your Supabase project's API settings.
+        const SUPABASE_URL = "{{ supabase_url }}"; // Replace with your actual Supabase URL
+        const SUPABASE_ANON_KEY = "{{ supabase_anon_key }}"; // Replace with your actual Supabase Anon Key
+
+        let client = null;
+        if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY") {
+            try {
+                client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } catch (e) {
+                console.error("Error initializing Supabase JS client:", e);
+                document.body.innerHTML = "<h1>Error: Could not initialize authentication client.</h1> Check console.";
+            }
+        } else {
+            console.error("Supabase URL or Anon Key is not configured properly for client-side JS.");
+            document.body.innerHTML = "<h1>Configuration Error</h1><p>Supabase URL or Anon Key not provided to the client-side script. Please check your application setup. You need to pass these from your server to this template, or ensure your frontend build process includes them.</p><p>Look for `supabase_url` and `supabase_anon_key` in `auth_callback_handler.html` and the route that renders it in `app.py`.</p>";
+        }
+
+
+        async function processSessionAndLogin(session) {
+            if (!client) {
+                document.getElementById("status").innerText = "Authentication client not initialized.";
+                return;
+            }
+
+            if (session && session.access_token) {
+                document.getElementById("status").innerText = "Session found. Finalizing login with server...";
+                console.log("Access Token (from processSessionAndLogin):", session.access_token ? session.access_token.substring(0, 20) + "..." : "N/A");
+                console.log("Refresh Token (from processSessionAndLogin):", session.refresh_token ? session.refresh_token.substring(0, 20) + "..." : "N/A");
+
+                try {
+                    const response = await fetch("{{ url_for('establish_flask_session') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            access_token: session.access_token,
+                            refresh_token: session.refresh_token
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        document.getElementById("status").innerText = "Login successful! Redirecting...";
+                        window.location.href = result.redirect_url || "{{ url_for('profile') }}";
+                    } else {
+                        document.getElementById("status").innerText = "Server login failed: " + (result.error || "Unknown error");
+                        console.error("Server login failed:", result);
+                    }
+                } catch (e) {
+                    document.getElementById("status").innerText = "Error communicating with server: " + e.message;
+                    console.error("Error during fetch to /establish_flask_session:", e);
+                }
+            } else {
+                document.getElementById("status").innerText = "No valid session with access token received. If you just logged in, this might be an issue. Otherwise, please try logging in again.";
+                console.log("No valid session or access_token in processSessionAndLogin. Current URL:", window.location.href);
+                // Optionally, redirect to login page after a delay
+                // setTimeout(() => { window.location.href = "{{ url_for('login') }}"; }, 5000);
+            }
+        }
+
+        // Run the handler when the page loads
+        window.onload = () => {
+            if (client) {
+                client.auth.onAuthStateChange(async (event, session) => {
+                    console.log("Auth event:", event, "Session:", session ? "Exists" : "null");
+                    if (event === "SIGNED_IN" && session) {
+                        console.log("Signed in, session available via onAuthStateChange. Processing...");
+                        await processSessionAndLogin(session);
+                    } else if (event === "INITIAL_SESSION" && session) {
+                        console.log("Initial session loaded via onAuthStateChange. Waiting for SIGNED_IN if new login.");
+                        if (session.access_token) {
+                             console.log("INITIAL_SESSION contains an access token. Attempting to process.");
+                             await processSessionAndLogin(session);
+                        }
+                    } else if (event === "SIGNED_OUT") {
+                        console.log("User signed out.");
+                        document.getElementById("status").innerText = "You have been signed out. Redirecting to login...";
+                        // setTimeout(() => { window.location.href = "{{ url_for('login') }}"; }, 3000);
+                    } else if (event === "TOKEN_REFRESHED" && session){
+                        console.log("Token refreshed. Updating server session if necessary.");
+                         await processSessionAndLogin(session);
+                    } else if (event === "USER_UPDATED" && session){
+                         console.log("User updated. Session:", session);
+                    } else if (event === "PASSWORD_RECOVERY"){
+                         console.log("Password recovery event");
+                    }
+
+                    if (event !== "SIGNED_IN" && !session?.access_token) {
+                        setTimeout(async () => {
+                            const { data: { session: currentSession }, error } = await client.auth.getSession();
+                            if (error) {
+                                console.error("Error in delayed getSession():", error);
+                            } else if (currentSession && currentSession.access_token) {
+                                console.log("Delayed getSession() found an active session. Processing...");
+                                await processSessionAndLogin(currentSession);
+                            } else {
+                                console.log("Delayed getSession() did not find an active session with access_token.");
+                                if (!document.getElementById("status").innerText.startsWith("Login successful")) {
+                                     document.getElementById("status").innerText = "No active session detected after redirect. Please check console or try logging in again.";
+                                }
+                            }
+                        }, 2000);
+                    }
+                });
+            } else {
+                document.getElementById("status").innerText = "Authentication system not configured. Please check client-side Supabase URL and Anon Key.";
+            }
+        };
+    </script>
+</head>
+<body>
+    <h1>Authenticating...</h1>
+    <p id="status">Please wait while we process your login.</p>
+    <p>If you are not redirected automatically, please check the browser console for errors.</p>
+</body>
+</html> 

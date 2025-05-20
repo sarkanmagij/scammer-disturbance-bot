@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kind Words Of Change</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+        }
+        .login-prompt-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100%;
+            text-align: center;
+        }
+        .google-login-button {
+            display: inline-block;
+            background-color: #4285F4; /* Google Blue */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 1.1em;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .google-login-button:hover {
+            background-color: #357ae8;
+        }
+        .auth-section {
+            padding: 10px 20px;
+            background-color: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+            text-align: right;
+        }
+        .auth-section p {
+            margin: 0 0 5px 0;
+            display: inline-block;
+            margin-right: 20px;
+        }
+        .auth-section a {
+            margin-left: 10px;
+            text-decoration: none;
+            color: #007bff;
+        }
+        .auth-section a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    {% if session.user_id %}
+        <div class="auth-section">
+            <p>
+                Logged in as: <strong>{{ session.user_email }}</strong> (Role: {{ session.user_role }})
+            </p>
+            <a href="{{ url_for('profile') }}">View Profile</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    {% endif %}
+
+    <div class="container">
+        <h1>Kind Words Of Change</h1>
+        <p>Send a kind message to help someone find a better path.</p>
+        
+        <div class="input-group">
+            <div class="control-group phone-lang-group">
+                <label for="phoneNumber">Phone Number:</label>
+                <input type="tel" id="phoneNumber" placeholder="E.g., +12345678900">
+            </div>
+            <div class="control-group phone-lang-group">
+                <label for="languageSelector">Language:</label>
+                <select id="languageSelector">
+                    <option value="en">English</option>
+                    <option value="lv">Latviešu (Latvian)</option>
+                    <option value="ru">Русский (Russian)</option>
+                </select>
+            </div>
+            <button id="sendMessageBtn">Send Now</button> 
+        </div>
+
+        <div class="control-group">
+            <label for="numMessages">Number of Messages:</label>
+            <input type="number" id="numMessages" value="1" min="1">
+        </div>
+        
+        <div class="control-group checkbox-group">
+            <input type="checkbox" id="scheduleToggle">
+            <label for="scheduleToggle">Schedule for later?</label>
+        </div>
+
+        <div id="schedulerSpecificOptions" class="scheduler-options" style="display: none;">
+            <div class="control-group">
+                <label for="numDays">Over how many days:</label>
+                <input type="number" id="numDays" value="1" min="1">
+            </div>
+            <div class="control-group">
+                <label for="sendTime">Time to Send (HH:MM):</label>
+                <input type="time" id="sendTime">
+            </div>
+        </div>
+        <div id="statusMessage" aria-live="polite"></div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    {% if not session.user_id %}
+        <div class="login-prompt-container">
+            <h1>Welcome to Kind Words Of Change</h1>
+            <p>Please log in to make a positive impact. You can still use the form above.</p>
+            <a href="{{ url_for('login') }}" class="google-login-button">Login with Google</a>
+        </div>
+    {% endif %}
+</body>
+</html> 

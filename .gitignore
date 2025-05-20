@@ -1,0 +1,6 @@
+# Environment variables
+.env
+*.pyc
+__pycache__/
+venv/
+*.DS_Store 

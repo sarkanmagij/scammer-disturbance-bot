@@ -1,0 +1,185 @@
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #f4f4f9;
+    color: #333;
+    padding: 20px;
+}
+
+.container {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: left;
+    width: 100%;
+    max-width: 500px;
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+p {
+    color: #666;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.input-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.input-group .control-group {
+    flex-grow: 1;
+    margin-bottom: 0;
+}
+
+.input-group .phone-lang-group {
+    min-width: 150px;
+}
+
+.control-group {
+    margin-bottom: 15px;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #444;
+}
+
+.control-group input[type="tel"],
+.control-group input[type="number"],
+.control-group input[type="time"],
+.control-group select {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+    height: 42px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+    vertical-align: middle;
+    height: auto;
+}
+
+.checkbox-group label {
+    display: inline;
+    font-weight: normal;
+    font-size: 16px;
+    vertical-align: middle;
+}
+
+#phoneNumber {
+}
+
+#languageSelector {
+    background-color: #fff;
+    color: #333;
+}
+
+#sendMessageBtn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 10px 15px;
+    font-size: 16px;
+    height: 42px;
+    align-self: flex-end;
+}
+
+.input-group #sendMessageBtn {
+    flex-grow: 0;
+    min-width: 120px;
+}
+
+#sendMessageBtn:hover {
+    background-color: #0056b3;
+}
+
+#sendMessageBtn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+}
+
+.scheduler-options {
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+#schedulerSpecificOptions .control-group {
+    width: 100%;
+}
+
+#statusMessage {
+    margin-top: 20px;
+    font-size: 14px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+}
+
+.statusMessage.success {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    display: block;
+}
+
+.statusMessage.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    display: block;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+@media (max-width: 600px) {
+    .input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .input-group .control-group,
+    .input-group #sendMessageBtn {
+        width: 100%;
+    }
+
+    .container {
+        padding: 20px;
+    }
+} 
