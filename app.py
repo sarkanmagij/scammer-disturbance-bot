@@ -6,6 +6,7 @@ from twilio.rest import Client
 from supabase import create_client, Client as SupabaseClient
 from supabase.lib.client_options import ClientOptions # Added for auth callback
 from postgrest.exceptions import APIError as PostgrestAPIError # Added for specific error handling
+import stripe
 from datetime import datetime as dt, timedelta, time as dt_time, timezone
 import threading
 import time # For the scheduler sleep
@@ -60,6 +61,13 @@ else:
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 supabase_client: SupabaseClient = None
+
+# Stripe configuration
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID")
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
 
 if SUPABASE_URL and SUPABASE_SERVICE_KEY:
     try:
@@ -308,6 +316,35 @@ def roles_required(roles):
         return decorated_function
     return decorator
 
+# --- Token Management ---
+def get_user_token_balance(user_id: str) -> int:
+    if not supabase_client or not user_id:
+        return 0
+    try:
+        resp = supabase_client.table('payment_tokens').select('token_balance').eq('user_id', user_id).maybe_single().execute()
+        if resp.data and 'token_balance' in resp.data:
+            return resp.data['token_balance']
+    except Exception as e:
+        print(f"ERROR retrieving token balance for {user_id}: {e}")
+    return 0
+
+
+def add_user_tokens(user_id: str, delta: int) -> bool:
+    if not supabase_client:
+        return False
+    try:
+        current = get_user_token_balance(user_id)
+        new_balance = current + delta
+        supabase_client.table('payment_tokens').upsert({
+            'user_id': user_id,
+            'token_balance': new_balance,
+            'updated_at': dt.now(timezone.utc).isoformat()
+        }).execute()
+        return True
+    except Exception as e:
+        print(f"ERROR updating token balance for {user_id}: {e}")
+        return False
+
 
 # --- Gemini and Twilio Functions (Existing) ---
 def generate_scammer_message_gemini(language="en"):
@@ -359,7 +396,10 @@ def send_sms_via_provider(phone_number, message):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    token_balance = 0
+    if 'user_id' in session:
+        token_balance = get_user_token_balance(session['user_id'])
+    return render_template('index.html', token_balance=token_balance)
 
 # --- Authentication Routes ---
 @app.route('/login')
@@ -527,8 +567,49 @@ def profile():
         # This case should ideally be caught by @login_required
         return redirect(url_for('login'))
 
+
+@app.route('/create_checkout_session', methods=['POST'])
+@login_required
+def create_checkout_session():
+    if not STRIPE_PRICE_ID:
+        return jsonify({'error': 'Stripe price not configured'}), 500
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            mode='payment',
+            line_items=[{'price': STRIPE_PRICE_ID, 'quantity': 1}],
+            success_url=url_for('index', _external=True),
+            cancel_url=url_for('index', _external=True),
+            metadata={'user_id': session['user_id'], 'tokens': 1}
+        )
+        return jsonify({'checkout_url': checkout_session.url})
+    except Exception as e:
+        print(f"Stripe checkout error: {e}")
+        return jsonify({'error': 'Failed to create checkout session'}), 500
+
+
+@app.route('/stripe_webhook', methods=['POST'])
+def stripe_webhook():
+    if not STRIPE_WEBHOOK_SECRET:
+        return '', 400
+    payload = request.get_data()
+    sig = request.headers.get('Stripe-Signature')
+    try:
+        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except Exception as e:
+        print(f"Webhook error: {e}")
+        return '', 400
+
+    if event['type'] == 'checkout.session.completed':
+        session_obj = event['data']['object']
+        user_id = session_obj['metadata'].get('user_id')
+        tokens = int(session_obj['metadata'].get('tokens', '1'))
+        add_user_tokens(user_id, tokens)
+
+    return '', 200
+
 @app.route('/send_sms', methods=['POST'])
-# @login_required # <<< Apply the login_required decorator
+@login_required
 def handle_send_sms():
     if not supabase_client:
         return jsonify({"error": "Database service not configured. Cannot schedule messages."}), 500
@@ -537,6 +618,9 @@ def handle_send_sms():
          return jsonify({"error": "Backend AI service not configured. Cannot generate/schedule message."}), 500
 
     data = request.get_json()
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Authentication required."}), 401
     phone_number = data.get('phone_number')
     language = data.get('language', 'en')
     num_messages = data.get('num_messages', 1)
@@ -551,6 +635,11 @@ def handle_send_sms():
         pass # num_days is not strictly validated here for instant send
     elif not isinstance(num_days, int) or num_days < 1: # For scheduled send
         return jsonify({"error": "Number of days must be a positive integer for scheduled send."}), 400
+
+    # Check token balance
+    token_balance = get_user_token_balance(user_id)
+    if token_balance < num_messages:
+        return jsonify({"error": "Insufficient token balance."}), 400
 
     messages_to_schedule = []
     
@@ -633,11 +722,15 @@ def handle_send_sms():
             
             inserted_items_list = response_tuple[1]
             num_inserted = len(inserted_items_list)
-            return jsonify({"message": f"{num_inserted} message(s) scheduled successfully."})
+            add_user_tokens(user_id, -num_inserted)
+            new_balance = get_user_token_balance(user_id)
+            return jsonify({"message": f"{num_inserted} message(s) scheduled successfully.", "token_balance": new_balance})
         
         elif hasattr(response_tuple, 'data') and isinstance(response_tuple.data, list):
             num_affected = len(response_tuple.data)
-            return jsonify({"message": f"{num_affected} item(s) processed successfully."})
+            add_user_tokens(user_id, -num_affected)
+            new_balance = get_user_token_balance(user_id)
+            return jsonify({"message": f"{num_affected} item(s) processed successfully.", "token_balance": new_balance})
             
         else: 
             print(f"WARNING: Supabase operation executed but response data format is unexpected. Response: {response_tuple}, Count: {exec_count}")

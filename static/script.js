@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const languageSelector = document.getElementById('languageSelector');
     const sendMessageBtn = document.getElementById('sendMessageBtn');
     const statusMessageDiv = document.getElementById('statusMessage');
+    const buyTokensBtn = document.getElementById('buyTokensBtn');
+    const tokenBalanceSpan = document.getElementById('tokenBalance');
 
     // New scheduler inputs
     const numMessagesInput = document.getElementById('numMessages');
@@ -28,6 +30,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if(scheduleToggle) { // Ensure toggle exists before adding listener
         scheduleToggle.addEventListener('change', updateSchedulerVisibility);
         updateSchedulerVisibility(); // Initial call to set state
+    }
+
+    if (buyTokensBtn) {
+        buyTokensBtn.addEventListener('click', async () => {
+            try {
+                const resp = await fetch('/create_checkout_session', {method: 'POST'});
+                const data = await resp.json();
+                if (resp.ok && data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else {
+                    alert('Failed to start checkout.');
+                }
+            } catch (e) {
+                alert('Error creating checkout session');
+            }
+        });
     }
 
     sendMessageBtn.addEventListener('click', async () => {
@@ -100,7 +118,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 statusMessageDiv.textContent = result.message || (scheduleToggle.checked ? 'Messages scheduled successfully!' : 'Message(s) sent successfully!');
                 statusMessageDiv.className = 'statusMessage success';
-                phoneNumberInput.value = ''; 
+                if (tokenBalanceSpan && result.token_balance !== undefined) {
+                    tokenBalanceSpan.textContent = result.token_balance;
+                }
+                phoneNumberInput.value = '';
                 // numMessagesInput.value = '1';
                 // if (scheduleToggle && scheduleToggle.checked) {
                 //    numDaysInput.value = '1';
