@@ -686,12 +686,12 @@ def handle_send_sms():
             base_naive_dt_to_send_local = dt.combine(actual_scheduled_date_for_day_local, target_time_obj)
 
             for _ in range(messages_for_this_day):
-                local_tz = current_server_local_dt.astimezone().tzinfo 
-                
-                if base_naive_dt_to_send_local.tzinfo is not None: # Ensure it's naive
-                     base_naive_dt_to_send_local = base_naive_dt_to_send_local.replace(tzinfo=None)
+                local_tz = current_server_local_dt.astimezone().tzinfo
 
-                aware_dt_local = local_tz.localize(base_naive_dt_to_send_local) # Apply local timezone
+                if base_naive_dt_to_send_local.tzinfo is not None:  # Ensure it's naive
+                    base_naive_dt_to_send_local = base_naive_dt_to_send_local.replace(tzinfo=None)
+
+                aware_dt_local = base_naive_dt_to_send_local.replace(tzinfo=local_tz)
                 utc_dt_to_send = aware_dt_local.astimezone(timezone.utc)  # Convert to UTC
                 
                 final_utc_dt_to_send = utc_dt_to_send + timedelta(seconds=daily_message_stagger_offset_seconds)
